@@ -2,40 +2,50 @@ import * as express from 'express';
 import * as http from 'http';
 import * as WebSocket from 'ws';
 import { setInterval } from 'timers';
+import { GameQueue } from './game-queue';
+import { GameInstance } from './game-instance';
+import { Client, ClientServerMessage, ClientServerMessageType, CreateClientData } from './comm';
 
 const app = express();
-
-//initialize a simple http server
 const server = http.createServer(app);
-
-//initialize the WebSocket server instance
 const wss = new WebSocket.Server({ server });
 
-let id = 0;
-const positions: { x: number, y: number }[] = [];
+const clients: { id: number, ws: WebSocket }[] = [];
+
+const gameQueue: GameQueue = new GameQueue();
+const gameInstances: GameInstance[] = [];
 
 wss.on('connection', (ws: WebSocket) => {
-  const my_id = id;
-  id += 1;
-  positions.push({ x: 100, y: 100 });
-
-  //connection is up, let's add a simple simple event
+  console.log(`Receving connection...`)
   ws.on('message', (message: string) => {
-    console.log(`IN from ${my_id} <`, message);
-    let position: {x: number, y: number} = JSON.parse(message);
-    positions[my_id] = position;
-    // ws.send(`Hello, you sent -> ${message}`);
+    const msg: ClientServerMessage = JSON.parse(message);
+    if (msg.type === ClientServerMessageType.CREATE) {
+      const createData: CreateClientData = msg.data;
+      const newClient = new Client(ws, createData.name);
+      gameQueue.addClient(newClient);
+    }
   });
-
-  //send immediatly a feedback to the incoming connection
-  ws.send(JSON.stringify({id: my_id}));
+  ws.onclose = (event: { wasClean: boolean,
+                         code: number,
+                         reason: string,
+                         target: WebSocket }) => {
+  }
 });
 
 setInterval(() => {
-  wss.clients
-  .forEach((client: WebSocket) => {
-    client.send(JSON.stringify(positions));
-  });
+
+  // Queue Cycle
+  gameQueue.tick();
+  const newGameInstance: GameInstance | undefined = gameQueue.makeGameInstance();
+  if (newGameInstance !== undefined) {
+    gameInstances.push(newGameInstance);
+  }
+
+  // Instances Cycle
+  for (const gameInstance of gameInstances) {
+    gameInstance.tick();
+  }
+
 }, 33)
 
 //start our server
