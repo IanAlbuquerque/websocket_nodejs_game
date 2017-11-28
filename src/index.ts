@@ -4,7 +4,8 @@ import * as WebSocket from 'ws';
 import { setInterval } from 'timers';
 import { GameQueue } from './game-queue';
 import { GameInstance } from './game-instance';
-import { Client, ClientServerMessage, ClientServerMessageType, CreateClientData } from './comm';
+import { Client } from './client';
+import * as Msg from './msg';
 
 const app = express();
 const server = http.createServer(app);
@@ -18,18 +19,13 @@ const gameInstances: GameInstance[] = [];
 wss.on('connection', (ws: WebSocket) => {
   console.log(`Receving connection...`)
   ws.on('message', (message: string) => {
-    const msg: ClientServerMessage = JSON.parse(message);
-    if (msg.type === ClientServerMessageType.CREATE) {
-      const createData: CreateClientData = msg.data;
-      const newClient = new Client(ws, createData.name);
+    const msg: Msg.CS = JSON.parse(message);
+    if (msg.type === Msg.CSType.CSCreateClient) {
+      const createClientMsg: Msg.CSCreateClient = msg as Msg.CSCreateClient;
+      const newClient = new Client(ws, createClientMsg.name);
       gameQueue.addClient(newClient);
     }
   });
-  ws.onclose = (event: { wasClean: boolean,
-                         code: number,
-                         reason: string,
-                         target: WebSocket }) => {
-  }
 });
 
 setInterval(() => {

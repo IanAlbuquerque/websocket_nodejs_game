@@ -1,5 +1,6 @@
-import { GameInstance } from './game-instance';
-import { Client, ServerClientMessageType, ServerClientMessage } from './comm';
+import { GameInstance, NUM_PLAYERS } from './game-instance';
+import { Client } from './client';
+import * as Msg from './msg';
 
 export class GameQueue {
     private clients: Client[] = [];
@@ -14,13 +15,14 @@ export class GameQueue {
     }
 
     public makeGameInstance(): GameInstance | undefined {
-      if ( this.clients.length >= 2) {
+      if ( this.clients.length >= NUM_PLAYERS) {
+        const clientsArray: Client[] = [];
         console.log(`Creating game instance with clients:`);
-        console.log(`> ${this.clients[0].getName()}`);
-        console.log(`> ${this.clients[1].getName()}`);
-        const newGameInstance: GameInstance = new GameInstance([this.clients[0], this.clients[1]]);
-        this.clients.shift();
-        this.clients.shift();
+        for (let i = 0; i < NUM_PLAYERS; i++) {
+          console.log(`> ${this.clients[0].getName()}`);
+          clientsArray.push(this.clients.shift() as Client);
+        }
+        const newGameInstance: GameInstance = new GameInstance(clientsArray);
         return newGameInstance;
       }
       return undefined;
@@ -28,7 +30,7 @@ export class GameQueue {
 
     public tick(): void {
       for (const client of this.clients) {
-        client.sendMessage({ type: ServerClientMessageType.FINDING_MATCH });
+        client.sendMessage({ type: Msg.SCType.SCFindingMatch });
       }
     }
   }
